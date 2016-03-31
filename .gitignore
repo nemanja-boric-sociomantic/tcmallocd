@@ -1,0 +1,9 @@
+.dub
+dub.selections.json
+*.o
+*.obj
+bin
+temp
+bak
+sample1
+sample2

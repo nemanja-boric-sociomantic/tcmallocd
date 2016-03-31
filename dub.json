@@ -1,0 +1,22 @@
+{
+  "name" : "tcmallocd",
+  "description": "D bindings of tc malloc from google performance tools",
+  "authors": ["Basile B."],
+  "homepage": "https://github.com/BBasile/tcmallocd",
+  "license" : "MIT",
+  "targetPath": "bin",
+  "libs": ["tcmalloc"],
+  "configurations":
+  [
+    {
+      "name": "lib",
+      "targetType": "library",
+    },    
+    {
+      "name": "test",
+      "targetType": "executable",
+      "dflags": ["-main"],
+      "targetName": "tcmalloc-tester",
+    },
+  ],
+}
