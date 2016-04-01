@@ -3,73 +3,129 @@ module tcmallocd.allocator;
 import std.experimental.allocator.common;
 
 /**
- * The struct TCMallocator is similar to Mallocator except that it's based
- * on the high performance mallocator from Google
+ * The struct TCMallocator is a typed D allocator, similar to Mallocator except
+ * that it's based on the high performance mallocator functions from Google
  * ($(REF https://github.com/gperftools/gperftools)).
  */
 struct TCMallocator
 {
-    unittest
-    {
-        //import std.experimental.allocator: testAllocator;
-        //testAllocator!(() => TCMallocator.instance);
-    }
-
     /**
-    The alignment is a static constant equal to $(D platformAlignment), which
-    ensures proper alignment for any D data type.
-    */
+     * The alignment is a static constant equal to $(D platformAlignment), which
+     * ensures proper alignment for any D data type.
+     */
     enum uint alignment = platformAlignment;
 
     /**
-    Standard allocator methods per the semantics defined above. The
-    $(D deallocate) and $(D reallocate) methods are $(D @system) because they
-    may move memory around, leaving dangling pointers in user code. Somewhat
-    paradoxically, $(D malloc) is $(D @safe) but that's only useful to safe
-    programs that can afford to leak memory allocated.
-    */
+     * Tries to to allocate $(D_PARAM size) bytes.
+     *
+     * Params:
+     *      size = The count of byte to allocates.
+     *
+     * Returns:
+     *      a `null` if the allocation fails otherwise a `void[]` array.
+     */
     @trusted @nogc nothrow
-    void[] allocate(size_t bytes) shared
+    void[] allocate(size_t size) shared
     {
+        if (!size)
+            return null;
         import tcmallocd.itf: tc_malloc;
-        if (!bytes) return null;
-        auto p = tc_malloc(bytes);
-        return p ? p[0 .. bytes] : null;
+        auto p = tc_malloc(size);
+        return p ? p[0 .. size] : null;
     }
 
-    /// Ditto
+    /**
+     * Deallocates a `void[]` buffer previously obtained with
+     * `TCMallocator.allocate()`.
+     *
+     * Params:
+     *      buffer = The `void[]` array to deallocate.
+     *
+     * Returns:
+     *      always true.
+     */
     @system @nogc nothrow
-    bool deallocate(void[] b) shared
+    bool deallocate(ref void[] buffer) shared
     {
         import tcmallocd.itf: tc_free;
-        tc_free(b.ptr);
-        return true;
-    }
-
-    /// Ditto
-    @system @nogc nothrow
-    bool reallocate(ref void[] b, size_t s) shared
-    {
-        if (!s)
-        {
-            // fuzzy area in the C standard, see http://goo.gl/ZpWeSE
-            // so just deallocate and nullify the pointer
-            deallocate(b);
-            b = null;
-            return true;
-        }
-        import tcmallocd.itf: tc_realloc;
-        auto p = cast(ubyte*) tc_realloc(b.ptr, s);
-        if (!p) return false;
-        b = p[0 .. s];
+        tc_free(buffer.ptr);
+        buffer = null;
         return true;
     }
 
     /**
-    Returns the global instance of this allocator type. The C heap allocator is
-    thread-safe, therefore all of its methods and `it` itself are
-    $(D shared).
-    */
+     * Resize a `void[]` buffer previously obtained with
+     * `TCMallocator.allocate()`.
+     *
+     * Params:
+     *      buffer = The `void[]` array to resize.
+     *      size = The new size.
+     *
+     * Returns:
+     *      false if the reallocation fails, otherwise true.
+     */
+    @system @nogc nothrow
+    bool reallocate(ref void[] buffer, size_t size) shared
+    {
+        if (!size)
+            return deallocate(buffer);
+
+        import tcmallocd.itf: tc_realloc;
+        void* p = tc_realloc(buffer.ptr, size);
+        if (!p)
+            return false;
+        buffer = p[0 .. size];
+        return true;
+    }
+
+    /**
+     * Allows to retrieve the real bound of a buffer previously
+     * obtained with `TCMallocator.allocate()`.
+     *
+     * Params:
+     *      buffer = The `void[]` array whose size is to retrieve.
+     *
+     * Returns:
+     *      `0` is $(D_PARAM buffer) is null or not allocated with TCMallocator,
+     *      otherwise the real size of the memory chunk, which may be greater
+     *      of the size initially requested.
+     */
+    @trusted @nogc nothrow
+    size_t bound(void[] buffer) shared
+    {
+        import tcmallocd.itf: tc_malloc_size;
+        if (!buffer.ptr)
+            return 0;
+        else
+            return tc_malloc_size(buffer.ptr);
+    }
+
+    /**
+     * Returns the global instance of this allocator type.
+     */
     static shared TCMallocator instance;
+}
+///
+@nogc nothrow unittest
+{
+    void[] chunk;
+    chunk = TCMallocator.instance.allocate(32);
+    assert(chunk.ptr);
+    assert(chunk.length == 32);
+    TCMallocator.instance.reallocate(chunk, 0);
+    assert(!chunk.ptr);
+    chunk = TCMallocator.instance.allocate(32);
+    assert(chunk.ptr);
+    assert(chunk.length == 32);
+    TCMallocator.instance.reallocate(chunk, 64);
+    assert(chunk.ptr);
+    assert(chunk.length == 64);
+    TCMallocator.instance.deallocate(chunk);
+    assert(!chunk.ptr);
+    chunk = TCMallocator.instance.allocate(15);
+    assert(chunk.ptr);
+    assert(TCMallocator.instance.bound(chunk) == 16);
+    TCMallocator.instance.deallocate(chunk);
+    assert(!chunk.ptr);
 }
 
