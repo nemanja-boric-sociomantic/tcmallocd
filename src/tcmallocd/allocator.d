@@ -1,11 +1,14 @@
+/**
+ * The module tcmallocd.allocator proposes some typed D allocators
+ * based on Google Thread Caching mallocators.
+ * ($(REF https://github.com/gperftools/gperftools)).
+ */
 module tcmallocd.allocator;
 
 import std.experimental.allocator.common;
 
 /**
- * The struct TCMallocator is a typed D allocator, similar to Mallocator except
- * that it's based on the high performance mallocator functions from Google
- * ($(REF https://github.com/gperftools/gperftools)).
+ * The struct TCMallocator is a typed D allocator, similar to Mallocator.
  */
 struct TCMallocator
 {
@@ -80,7 +83,7 @@ struct TCMallocator
 
     /**
      * Allows to retrieve the real bound of a buffer previously
-     * obtained with `TCMallocator.allocate()`.
+     * obtained with a Thread Caching allocator (generally speaking).
      *
      * Params:
      *      buffer = The `void[]` array whose size is to retrieve.
@@ -126,6 +129,122 @@ struct TCMallocator
     assert(chunk.ptr);
     assert(TCMallocator.instance.bound(chunk) == 16);
     TCMallocator.instance.deallocate(chunk);
+    assert(!chunk.ptr);
+}
+
+/**
+ * The struct TCAlignedMallocator is a typed D allocator, similar to
+ * AlignedMallocator.
+ */
+struct TCAlignedMallocator
+{
+    /**
+     * The alignment is a static constant equal to $(D platformAlignment), which
+     * ensures proper alignment for any D data type.
+     */
+    enum uint alignment = platformAlignment;
+
+    /**
+     * Forwards to $(D alignedAllocate(bytes, platformAlignment)).
+     */
+    @trusted @nogc nothrow
+    void[] allocate(size_t size) shared
+    {
+        if (!size)
+            return null;
+        else
+            return alignedAllocate(size, alignment);
+    }
+
+    /**
+     * Tries to allocate an aligned chunk of bytes.
+     *
+     * Params:
+     *      size = The count of byte to allocates.
+     *      a = The alignment.
+     */
+    @trusted @nogc nothrow
+    void[] alignedAllocate(size_t size, uint a) shared
+    in
+    {
+        //assert(a.isGoodDynamicAlignment);
+    }
+    body
+    {
+        import tcmallocd.itf: tc_posix_memalign;
+        import core.stdc.errno : ENOMEM, EINVAL;
+
+        void* result;
+        auto code = tc_posix_memalign(&result, a, size);
+        if (code == ENOMEM)
+            return null;
+
+        else if (code == EINVAL)
+            assert (0, "AlignedMallocator.alignment is not a power of two multiple of (void*).sizeof, according to posix_memalign!");
+
+        else if (code != 0)
+            assert (0, "posix_memalign returned an unknown code!");
+
+        else
+            return result[0 .. size];
+    }
+
+    /**
+     * Deallocates a `void[]` buffer previously obtained with
+     * `TCAlignedMallocator.allocate()`.
+     *
+     * Params:
+     *      buffer = The `void[]` array to deallocate.
+     *
+     * Returns:
+     *      always true.
+     */
+    @system @nogc nothrow
+    bool deallocate(ref void[] buffer) shared
+    {
+        return TCMallocator.instance.deallocate(buffer);
+    }
+
+    /**
+     * Resize a `void[]` buffer previously obtained with
+     * `TCAlignedMallocator.allocate()`.
+     *
+     * Params:
+     *      buffer = The `void[]` array to resize.
+     *      size = The new size.
+     *
+     * Returns:
+     *      false if the reallocation fails, otherwise true.
+     */
+    @system @nogc nothrow
+    bool reallocate(ref void[] buffer, size_t size) shared
+    {
+        return TCMallocator.instance.reallocate(buffer, size);
+    }
+
+    /**
+     * See `TCMallocator.bound()`.
+     */
+    @trusted @nogc nothrow
+    size_t bound(void[] buffer) shared
+    {
+        return TCMallocator.instance.bound(buffer);
+    }
+
+    /**
+     * Returns the global instance of this allocator type.
+     */
+    static shared TCAlignedMallocator instance;
+}
+///
+@nogc nothrow unittest
+{
+    void[] chunk;
+    chunk = TCAlignedMallocator.instance.alignedAllocate(16, 256);
+    assert(chunk.ptr);
+    assert((cast(size_t)chunk.ptr & 0xFF) == 0);
+    assert(TCAlignedMallocator.instance.bound(chunk) == 256);
+    TCAlignedMallocator.instance.deallocate(chunk);
     assert(!chunk.ptr);
 }
 
