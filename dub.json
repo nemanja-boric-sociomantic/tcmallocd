@@ -1,6 +1,6 @@
 {
   "name" : "tcmallocd",
-  "description" : "D bindings of tc malloc from google performance tools",
+  "description" : "Typed D allocators based on the bindings of the thread caching allocators from google performance tools",
   "authors" : [
     "Basile B."
   ],
