@@ -1,6 +1,6 @@
 /**
  * The module tcmallocd.allocator proposes some typed D allocators
- * based on Google Thread Caching mallocators.
+ * based on GPERF tools mallocators.
  * ($(REF https://github.com/gperftools/gperftools)).
  */
 module tcmallocd.allocator;
@@ -45,7 +45,7 @@ struct TCMallocator
      *      buffer = The `void[]` array to deallocate.
      *
      * Returns:
-     *      always true.
+     *      always `true`.
      */
     @system @nogc nothrow
     bool deallocate(ref void[] buffer) shared
@@ -82,16 +82,16 @@ struct TCMallocator
     }
 
     /**
-     * Allows to retrieve the real bound of a buffer previously
-     * obtained with a Thread Caching allocator (generally speaking).
+     * Non standards function that allows to retrieve the real bound of a buffer
+     * previously obtained with a Thread Caching allocator (generally speaking).
      *
      * Params:
      *      buffer = The `void[]` array whose size is to retrieve.
      *
      * Returns:
-     *      `0` is $(D_PARAM buffer) is null or not allocated with TCMallocator,
+     *      `0` if $(D_PARAM buffer) is `null` or not allocated with TCMallocator,
      *      otherwise the real size of the memory chunk, which may be greater
-     *      of the size initially requested.
+     *      than the size initially requested.
      */
     @trusted @nogc nothrow
     size_t bound(void[] buffer) shared
