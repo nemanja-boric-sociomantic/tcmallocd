@@ -1,6 +1,6 @@
 {
   "name" : "tcmallocd",
-  "description" : "Typed D allocators based on the bindings of the thread caching allocators from google performance tools",
+  "description" : "Typed D allocators that use the GPERF tools thread caching allocators",
   "authors" : [
     "Basile B."
   ],
