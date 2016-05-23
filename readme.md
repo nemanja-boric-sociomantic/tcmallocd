@@ -4,7 +4,7 @@ This DUB package contains the D bindings of the _thread caching mallocator_ func
 It also contains typed D allocators, conform with the interface defined in the std.experimental.allocator.
 
 The typed D allocators should rather be used in multi-threaded programs.
-They can be considered of a higher-level than their D equivalents since internally they use structures similar to what's defined in the buidling blocks (such as the FreeList).
+They can be considered of a higher-level than their D equivalents since internally they use structures similar to what's defined in the building blocks (such as the FreeList).
 
 ## setup
 
